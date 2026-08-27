@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Sagen — Journal</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231C1C1A'/%3E%3Crect x='8' y='8' width='4' height='48' fill='%23B33A2E'/%3E%3Ctext x='34' y='42' font-family='Georgia,serif' font-size='28' fill='%23F5F5F2' text-anchor='middle'%3ES%3C/text%3E%3C/svg%3E">
+<style>
+  :root{
+    --paper:#F5F5F2;
+    --paper-raised:#FFFFFF;
+    --ink:#1C1C1A;
+    --ink-soft:#4A4A46;
+    --accent:#B33A2E;
+    --accent-tint:#F4E4E1;
+    --slate:#56636B;
+    --line:#E1E1DC;
+    --line-strong:#CFCFC8;
+    --radius:14px;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{height:100%;}
+  html{ touch-action:manipulation; }
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:-apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing:antialiased;
+    overscroll-behavior-y:none;
+    touch-action:manipulation;
+  }
+  .mono{
+    font-family:ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    letter-spacing:0.02em;
+  }
+
+  /* ---------- App shell ---------- */
+  #app{
+    max-width:640px;
+    margin:0 auto;
+    min-height:100dvh;
+    display:flex;
+    flex-direction:column;
+    padding-bottom:calc(96px + env(safe-area-inset-bottom));
+  }
+
+  header{
+    position:sticky;
+    top:0;
+    z-index:10;
+    background:var(--paper);
+    padding:calc(20px + env(safe-area-inset-top)) 20px 14px;
+    border-bottom:1px solid var(--line);
+  }
+  header .title-row{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+  }
+  header h1{
+    margin:0;
+    font-size:22px;
+    font-weight:700;
+    letter-spacing:-0.01em;
+  }
+  header .eyebrow{
+    margin:0 0 2px;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.12em;
+    color:var(--accent);
+    font-weight:600;
+  }
+  header .count{
+    font-size:13px;
+    color:var(--slate);
+  }
+
+  .search-row{
+    margin-top:14px;
+    position:relative;
+  }
+  .search-row input{
+    width:100%;
+    padding:10px 14px 10px 36px;
+    border-radius:10px;
+    border:1px solid var(--line-strong);
+    background:var(--paper-raised);
+    font-size:16px;
+    color:var(--ink);
+  }
+  .search-row input:focus{
+    outline:none;
+    border-color:var(--accent);
+  }
+  .search-row svg{
+    position:absolute;
+    left:11px;
+    top:50%;
+    transform:translateY(-50%);
+    width:16px;
+    height:16px;
+    stroke:var(--slate);
+  }
+
+  /* ---------- List ---------- */
+  main{
+    flex:1;
+    padding:16px 20px 0;
+  }
+  .entry-card{
+    background:var(--paper-raised);
+    border-radius:var(--radius);
+    border:1px solid var(--line);
+    border-left:3px solid var(--accent);
+    padding:14px 16px;
+    margin-bottom:10px;
+    cursor:pointer;
+    transition:transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .entry-card:active{
+    transform:scale(0.985);
+  }
+  .entry-card .meta-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-bottom:6px;
+  }
+  .entry-card .case-code{
+    font-size:11px;
+    color:var(--accent);
+    font-weight:600;
+  }
+  .entry-card .date{
+    font-size:11px;
+    color:var(--slate);
+  }
+  .entry-card .card-title{
+    font-size:16px;
+    font-weight:600;
+    margin:0 0 4px;
+    color:var(--ink);
+  }
+  .entry-card .preview{
+    font-size:13.5px;
+    color:var(--ink-soft);
+    margin:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+
+  .empty-state{
+    text-align:center;
+    padding:64px 20px;
+    color:var(--slate);
+  }
+  .empty-state .glyph{
+    width:40px;height:40px;
+    margin:0 auto 14px;
+    stroke:var(--line-strong);
+  }
+  .empty-state p{
+    margin:0 0 18px;
+    font-size:14.5px;
+    line-height:1.5;
+  }
+  .empty-state button{
+    background:var(--ink);
+    color:#fff;
+    border:none;
+    border-radius:10px;
+    padding:11px 20px;
+    font-size:14px;
+    font-weight:600;
+  }
+
+  /* ---------- Floating action button ---------- */
+  .fab{
+    position:fixed;
+    right:20px;
+    bottom:calc(24px + env(safe-area-inset-bottom));
+    width:56px;
+    height:56px;
+    border-radius:50%;
+    background:var(--ink);
+    color:#fff;
+    border:none;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    box-shadow:0 6px 18px rgba(0,0,0,0.22);
+    z-index:20;
+    transition:transform 0.15s ease;
+  }
+  .fab:active{ transform:scale(0.93); }
+  .fab svg{ width:24px; height:24px; }
+
+  .toolbar-hint{
+    display:flex;
+    gap:14px;
+    justify-content:center;
+    padding:16px 20px 4px;
+  }
+  .toolbar-hint button{
+    background:none;
+    border:none;
+    font-size:12.5px;
+    color:var(--slate);
+    font-weight:600;
+    padding:6px 4px;
+  }
+
+  /* ---------- Sheet / editor ---------- */
+  .sheet-backdrop{
+    position:fixed;
+    inset:0;
+    background:rgba(28,28,26,0.35);
+    opacity:0;
+    pointer-events:none;
+    transition:opacity 0.2s ease;
+    z-index:30;
+  }
+  .sheet-backdrop.open{
+    opacity:1;
+    pointer-events:auto;
+  }
+  .sheet{
+    position:fixed;
+    left:0; right:0; bottom:0;
+    max-width:640px;
+    margin:0 auto;
+    background:var(--paper);
+    border-radius:20px 20px 0 0;
+    max-height:92dvh;
+    display:flex;
+    flex-direction:column;
+    transform:translateY(100%);
+    transition:transform 0.28s cubic-bezier(.32,.72,0,1);
+    z-index:31;
+    box-shadow:0 -8px 30px rgba(0,0,0,0.15);
+  }
+  .sheet.open{ transform:translateY(0); }
+
+  .sheet-header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:14px 16px;
+    border-bottom:1px solid var(--line);
+  }
+  .sheet-header .grabber{
+    position:absolute;
+    top:8px; left:50%;
+    transform:translateX(-50%);
+    width:36px; height:4px;
+    border-radius:2px;
+    background:var(--line-strong);
+  }
+  .sheet-header button.text-btn{
+    background:none;
+    border:none;
+    font-size:15px;
+    font-weight:600;
+    padding:6px 8px;
+  }
+  .sheet-header .cancel{ color:var(--slate); }
+  .sheet-header .save{ color:var(--accent); }
+  .sheet-header .save:disabled{ color:var(--line-strong); }
+  .sheet-header .case-label{
+    font-size:11px;
+    color:var(--accent);
+    font-weight:600;
+  }
+
+  .sheet-body{
+    overflow-y:auto;
+    padding:18px 20px 30px;
+    -webkit-overflow-scrolling:touch;
+  }
+  .field{
+    margin-bottom:18px;
+  }
+  .field label{
+    display:block;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.1em;
+    color:var(--slate);
+    font-weight:600;
+    margin-bottom:6px;
+  }
+  .field input[type="date"],
+  .field input[type="text"]{
+    width:100%;
+    border:1px solid var(--line-strong);
+    background:var(--paper-raised);
+    border-radius:10px;
+    padding:11px 12px;
+    font-size:16px;
+    color:var(--ink);
+    font-family:inherit;
+  }
+  .field input[type="date"]{
+    font-family:ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  .field textarea{
+    width:100%;
+    border:1px solid var(--line-strong);
+    background:var(--paper-raised);
+    border-radius:10px;
+    padding:12px;
+    font-size:16px;
+    line-height:1.55;
+    color:var(--ink);
+    font-family:inherit;
+    resize:vertical;
+    min-height:120px;
+  }
+  .field textarea.notes{
+    min-height:70px;
+    font-size:16px;
+    color:var(--ink-soft);
+  }
+  .field input:focus, .field textarea:focus{
+    outline:none;
+    border-color:var(--accent);
+  }
+
+  .danger-row{
+    margin-top:6px;
+    padding-top:18px;
+    border-top:1px solid var(--line);
+  }
+  .danger-row button{
+    background:none;
+    border:none;
+    color:var(--accent);
+    font-size:14px;
+    font-weight:600;
+    padding:8px 0;
+  }
+
+  /* ---------- Settings sheet ---------- */
+  .settings-list button{
+    width:100%;
+    text-align:left;
+    background:var(--paper-raised);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:13px 14px;
+    font-size:14.5px;
+    font-weight:600;
+    color:var(--ink);
+    margin-bottom:10px;
+  }
+  .settings-list input[type="file"]{ display:none; }
+  .settings-note{
+    font-size:12.5px;
+    color:var(--slate);
+    line-height:1.5;
+    margin-top:4px;
+  }
+
+  ::selection{ background:var(--accent-tint); }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header>
+    <p class="eyebrow">Case journal</p>
+    <div class="title-row">
+      <h1>Sagen</h1>
+      <span class="count" id="count">0 entries</span>
+    </div>
+    <div class="search-row">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input type="text" id="search" placeholder="Search entries" autocomplete="off">
+    </div>
+  </header>
+
+  <main id="list"></main>
+
+  <div class="toolbar-hint">
+    <button id="openSettings">Backup &amp; restore</button>
+  </div>
+</div>
+
+<button class="fab" id="newEntryBtn" aria-label="New entry">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+</button>
+
+<!-- Entry editor sheet -->
+<div class="sheet-backdrop" id="entryBackdrop"></div>
+<div class="sheet" id="entrySheet">
+  <div class="sheet-header">
+    <div class="grabber"></div>
+    <button class="text-btn cancel" id="cancelEntry">Cancel</button>
+    <span class="case-label mono" id="caseLabel"></span>
+    <button class="text-btn save" id="saveEntry">Save</button>
+  </div>
+  <div class="sheet-body">
+    <div class="field">
+      <label for="fDate">Date</label>
+      <input type="date" id="fDate">
+    </div>
+    <div class="field">
+      <label for="fTitle">Purpose of entry</label>
+      <input type="text" id="fTitle" placeholder="e.g. Submitting the prøvelsesattest">
+    </div>
+    <div class="field">
+      <label for="fBody">Entry</label>
+      <textarea id="fBody" placeholder="What happened, what was said, how it went..."></textarea>
+    </div>
+    <div class="field">
+      <label for="fNotes">Notes</label>
+      <textarea class="notes" id="fNotes" placeholder="Reference numbers, follow-ups, things to remember..."></textarea>
+    </div>
+    <div class="danger-row" id="deleteRow" style="display:none;">
+      <button id="deleteEntry">Delete this entry</button>
+    </div>
+  </div>
+</div>
+
+<!-- Settings sheet -->
+<div class="sheet-backdrop" id="settingsBackdrop"></div>
+<div class="sheet" id="settingsSheet">
+  <div class="sheet-header">
+    <div class="grabber"></div>
+    <span style="font-weight:700;font-size:15px;">Backup &amp; restore</span>
+    <button class="text-btn save" id="closeSettings">Done</button>
+  </div>
+  <div class="sheet-body settings-list">
+    <button id="exportPdfBtn">Export as PDF</button>
+    <p class="settings-note">A clean, readable copy of every entry — for printing, sharing, or keeping outside the app.</p>
+    <br>
+    <button id="exportBtn">Export backup (.json)</button>
+    <p class="settings-note">Everything lives only on this device. Export a backup now and then, especially before switching phones — there's no sync.</p>
+    <br>
+    <button id="importBtn">Import backup (.json)</button>
+    <input type="file" id="importFile" accept="application/json">
+    <p class="settings-note">Importing adds entries from the file without touching what's already here.</p>
+  </div>
+</div>
+
+<script>
+(function(){
+  const STORE_KEY = 'sagen_entries_v1'; // legacy localStorage keys, used for one-time migration only
+  const SEQ_KEY = 'sagen_seq_v1';
+  const DB_NAME = 'sagenDB';
+  const STORE_NAME = 'kv';
+
+  let entries = [];
+  let seq = 0;
+  let editingId = null;
+
+  // ---------- IndexedDB storage ----------
+  // iOS Safari's localStorage is unreliable for pages opened from a local
+  // file (it can get silently cleared). IndexedDB is the robust choice here.
+  function openDB(){
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = (e) => {
+        const db = e.target.result;
+        if(!db.objectStoreNames.contains(STORE_NAME)) db.createObjectStore(STORE_NAME);
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+  async function idbGet(key){
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const r = tx.objectStore(STORE_NAME).get(key);
+      r.onsuccess = () => resolve(r.result);
+      r.onerror = () => reject(r.error);
+    });
+  }
+  async function idbSet(key, value){
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      tx.objectStore(STORE_NAME).put(value, key);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async function load(){
+    try{
+      const e = await idbGet('entries');
+      const s = await idbGet('seq');
+      entries = e || [];
+      seq = s || 0;
+
+      // One-time migration: pull over anything saved by an earlier
+      // version of the app that used localStorage.
+      if(entries.length === 0 && seq === 0){
+        try{
+          const legacyEntries = JSON.parse(localStorage.getItem(STORE_KEY) || '[]');
+          const legacySeq = parseInt(localStorage.getItem(SEQ_KEY) || '0', 10) || 0;
+          if(legacyEntries.length > 0){
+            entries = legacyEntries;
+            seq = legacySeq;
+            await persist();
+          }
+        }catch(migrateErr){ /* nothing to migrate */ }
+      }
+    }catch(e){
+      entries = []; seq = 0;
+    }
+  }
+  async function persist(){
+    await idbSet('entries', entries);
+    await idbSet('seq', seq);
+  }
+  function caseCode(n){
+    return 'SAG.' + String(n).padStart(3, '0');
+  }
+  function fmtDate(iso){
+    if(!iso) return '';
+    const [y,m,d] = iso.split('-');
+    return `${d}.${m}.${y}`;
+  }
+  function todayISO(){
+    const d = new Date();
+    const off = d.getTimezoneOffset();
+    const local = new Date(d.getTime() - off*60000);
+    return local.toISOString().slice(0,10);
+  }
+  function escapeHtml(s){
+    return (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  const listEl = document.getElementById('list');
+  const countEl = document.getElementById('count');
+  const searchEl = document.getElementById('search');
+
+  function render(){
+    const q = searchEl.value.trim().toLowerCase();
+    const filtered = entries
+      .filter(e => !q || [e.title,e.body,e.notes].join(' ').toLowerCase().includes(q))
+      .sort((a,b) => (b.date || '').localeCompare(a.date || '') || b.caseNum - a.caseNum);
+
+    countEl.textContent = entries.length + (entries.length === 1 ? ' entry' : ' entries');
+
+    if(filtered.length === 0){
+      listEl.innerHTML = entries.length === 0 ? `
+        <div class="empty-state">
+          <svg class="glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 4h13a3 3 0 0 1 3 3v13a3 3 0 0 1-3-3H4z"/><line x1="8" y1="9" x2="15" y2="9"/><line x1="8" y1="13" x2="15" y2="13"/></svg>
+          <p>No entries yet. Start the case file with whatever happened first — a letter, an appointment, a form.</p>
+          <button id="emptyNew">New entry</button>
+        </div>` : `
+        <div class="empty-state"><p>No entries match "${escapeHtml(searchEl.value)}".</p></div>`;
+      if(entries.length === 0){
+        document.getElementById('emptyNew').onclick = () => openEntry(null);
+      }
+      return;
+    }
+
+    listEl.innerHTML = filtered.map(e => `
+      <div class="entry-card" data-id="${e.id}">
+        <div class="meta-row">
+          <span class="case-code mono">${caseCode(e.caseNum)}</span>
+          <span class="date mono">${fmtDate(e.date)}</span>
+        </div>
+        <p class="card-title">${escapeHtml(e.title) || 'Untitled entry'}</p>
+        <p class="preview">${escapeHtml(e.body).slice(0,120) || 'No entry text yet.'}</p>
+      </div>
+    `).join('');
+
+    listEl.querySelectorAll('.entry-card').forEach(card => {
+      card.addEventListener('click', () => openEntry(card.dataset.id));
+    });
+  }
+
+  // ---------- Entry sheet ----------
+  const entrySheet = document.getElementById('entrySheet');
+  const entryBackdrop = document.getElementById('entryBackdrop');
+  const fDate = document.getElementById('fDate');
+  const fTitle = document.getElementById('fTitle');
+  const fBody = document.getElementById('fBody');
+  const fNotes = document.getElementById('fNotes');
+  const caseLabel = document.getElementById('caseLabel');
+  const deleteRow = document.getElementById('deleteRow');
+
+  function openEntry(id){
+    editingId = id;
+    if(id){
+      const e = entries.find(x => x.id === id);
+      fDate.value = e.date || todayISO();
+      fTitle.value = e.title || '';
+      fBody.value = e.body || '';
+      fNotes.value = e.notes || '';
+      caseLabel.textContent = caseCode(e.caseNum);
+      deleteRow.style.display = 'block';
+    } else {
+      fDate.value = todayISO();
+      fTitle.value = '';
+      fBody.value = '';
+      fNotes.value = '';
+      caseLabel.textContent = caseCode(seq + 1);
+      deleteRow.style.display = 'none';
+    }
+    entryBackdrop.classList.add('open');
+    entrySheet.classList.add('open');
+    setTimeout(() => fTitle.focus(), 260);
+  }
+  function closeEntry(){
+    entryBackdrop.classList.remove('open');
+    entrySheet.classList.remove('open');
+    editingId = null;
+  }
+  document.getElementById('newEntryBtn').onclick = () => openEntry(null);
+  document.getElementById('cancelEntry').onclick = closeEntry;
+  entryBackdrop.addEventListener('click', (ev) => { if(ev.target === entryBackdrop) closeEntry(); });
+
+  document.getElementById('saveEntry').onclick = async () => {
+    const date = fDate.value || todayISO();
+    const title = fTitle.value.trim();
+    const body = fBody.value.trim();
+    const notes = fNotes.value.trim();
+    if(!title && !body){ closeEntry(); return; }
+
+    if(editingId){
+      const e = entries.find(x => x.id === editingId);
+      e.date = date; e.title = title; e.body = body; e.notes = notes;
+    } else {
+      seq += 1;
+      entries.push({
+        id: 'e' + Date.now() + Math.random().toString(36).slice(2,7),
+        caseNum: seq,
+        date, title, body, notes
+      });
+    }
+    await persist();
+    closeEntry();
+    render();
+  };
+
+  document.getElementById('deleteEntry').onclick = async () => {
+    if(!editingId) return;
+    if(confirm('Delete this entry? This can\'t be undone.')){
+      entries = entries.filter(x => x.id !== editingId);
+      await persist();
+      closeEntry();
+      render();
+    }
+  };
+
+  searchEl.addEventListener('input', render);
+
+  // ---------- Settings sheet ----------
+  const settingsSheet = document.getElementById('settingsSheet');
+  const settingsBackdrop = document.getElementById('settingsBackdrop');
+  document.getElementById('openSettings').onclick = () => {
+    settingsBackdrop.classList.add('open');
+    settingsSheet.classList.add('open');
+  };
+  function closeSettings(){
+    settingsBackdrop.classList.remove('open');
+    settingsSheet.classList.remove('open');
+  }
+  document.getElementById('closeSettings').onclick = closeSettings;
+  settingsBackdrop.addEventListener('click', (ev) => { if(ev.target === settingsBackdrop) closeSettings(); });
+
+  document.getElementById('exportBtn').onclick = () => {
+    const data = JSON.stringify({ entries, seq }, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const stamp = todayISO();
+    a.href = url;
+    a.download = `sagen-backup-${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const importFile = document.getElementById('importFile');
+  document.getElementById('importBtn').onclick = () => importFile.click();
+  importFile.addEventListener('change', (ev) => {
+    const file = ev.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try{
+        const data = JSON.parse(reader.result);
+        const incoming = Array.isArray(data.entries) ? data.entries : [];
+        const existingIds = new Set(entries.map(e => e.id));
+        let added = 0;
+        incoming.forEach(e => {
+          if(!existingIds.has(e.id)){
+            seq += 1;
+            entries.push({ ...e, caseNum: seq });
+            added++;
+          }
+        });
+        await persist();
+        render();
+        alert(added + ' entr' + (added === 1 ? 'y' : 'ies') + ' imported.');
+      }catch(e){
+        alert('Could not read that file. Make sure it\'s a Sagen backup .json file.');
+      }
+      importFile.value = '';
+    };
+    reader.readAsText(file);
+  });
+
+  load().then(render);
+
+  // ---------- PDF export (fully offline: hand-built PDF, no libraries) ----------
+  function toWinAnsiBytes(str){
+    const smart = {0x2018:0x91,0x2019:0x92,0x201C:0x93,0x201D:0x94,0x2013:0x96,0x2014:0x97,0x2026:0x85,0x20AC:0x80};
+    const bytes = [];
+    for(const ch of String(str)){
+      let cp = ch.codePointAt(0);
+      if(smart[cp]) cp = smart[cp];
+      if(cp > 0xFF) cp = 0x3F; // fallback '?'
+      if(cp === 0x28 || cp === 0x29 || cp === 0x5C) bytes.push(0x5C); // escape ( ) \
+      bytes.push(cp);
+    }
+    return bytes;
+  }
+
+  function buildPdfBytes(list){
+    const pageW = 595.28, pageH = 841.89; // A4
+    const margin = 54;
+    const contentWidth = pageW - margin*2;
+    const headerSize = 16, bodySize = 10.5, notesSize = 8.5;
+    const headerLH = 20, bodyLH = 14.5, notesLH = 11.5;
+    const entryGap = 20;
+
+    let ctx = null;
+    try{
+      const canvas = document.createElement('canvas');
+      ctx = canvas.getContext('2d');
+    }catch(e){ ctx = null; }
+
+    function measure(text, px, weight){
+      if(ctx){
+        ctx.font = `${weight} ${px}px Helvetica, Arial, sans-serif`;
+        return ctx.measureText(text).width;
+      }
+      return text.length * px * 0.5;
+    }
+    function wrapParagraph(text, maxWidth, px, weight){
+      const words = text.split(/\s+/).filter(Boolean);
+      if(words.length === 0) return [''];
+      const lines = [];
+      let line = '';
+      for(const w of words){
+        const test = line ? line + ' ' + w : w;
+        if(!line || measure(test, px, weight) <= maxWidth){
+          line = test;
+        } else {
+          lines.push(line);
+          line = w;
+        }
+      }
+      if(line) lines.push(line);
+      return lines;
+    }
+    function wrapMultiline(text, maxWidth, px, weight){
+      let out = [];
+      String(text).split('\n').forEach(p => {
+        out = out.concat(p.trim() === '' ? [''] : wrapParagraph(p, maxWidth, px, weight));
+      });
+      return out;
+    }
+
+    const pages = [[]];
+    let pageIdx = 0;
+    let cursorY = pageH - margin;
+    function newPage(){ pageIdx++; pages[pageIdx] = []; cursorY = pageH - margin; }
+
+    list.forEach(e => {
+      const headerText = `${fmtDate(e.date) || 'Undated'} - ${e.title || 'Untitled entry'}`;
+      const bodyLines = wrapMultiline(e.body || '(no entry text)', contentWidth, bodySize, 'normal');
+      const notesLines = (e.notes && e.notes.trim()) ? wrapMultiline('Notes - ' + e.notes, contentWidth, notesSize, 'italic') : [];
+
+      if(cursorY - headerLH < margin) newPage();
+
+      pages[pageIdx].push({type:'rect', x:margin, y:cursorY+3, w:26, h:3, color:[0.702,0.227,0.180]});
+      pages[pageIdx].push({type:'text', x:margin, y:cursorY-headerSize*0.8, size:headerSize, font:'F1', color:[0.11,0.11,0.10], text:headerText});
+      cursorY -= headerLH;
+
+      bodyLines.forEach(line => {
+        if(cursorY - bodyLH < margin) newPage();
+        pages[pageIdx].push({type:'text', x:margin, y:cursorY-bodySize*0.8, size:bodySize, font:'F2', color:[0.14,0.14,0.13], text:line});
+        cursorY -= bodyLH;
+      });
+
+      if(notesLines.length){
+        cursorY -= 6;
+        notesLines.forEach(line => {
+          if(cursorY - notesLH < margin) newPage();
+          pages[pageIdx].push({type:'text', x:margin, y:cursorY-notesSize*0.8, size:notesSize, font:'F3', color:[0.34,0.39,0.42], text:line});
+          cursorY -= notesLH;
+        });
+      }
+      cursorY -= entryGap;
+    });
+
+    // ---- serialize to PDF bytes ----
+    const chunks = [];
+    let length = 0;
+    const offsets = {};
+    function push(bytesOrStr){
+      const b = (typeof bytesOrStr === 'string') ? new TextEncoder().encode(bytesOrStr) : new Uint8Array(bytesOrStr);
+      chunks.push(b);
+      length += b.length;
+    }
+    function beginObj(num){ offsets[num] = length; push(`${num} 0 obj\n`); }
+    function endObj(){ push('endobj\n'); }
+
+    const fontObjNums = {F1:3, F2:4, F3:5};
+    const fontNames = {F1:'Helvetica-Bold', F2:'Helvetica', F3:'Helvetica-Oblique'};
+    const pageStartNum = 6;
+    const pageObjNums = pages.map((_, i) => pageStartNum + i*2);
+    const contentObjNums = pages.map((_, i) => pageStartNum + i*2 + 1);
+    const nextFree = pageStartNum + pages.length*2;
+
+    push('%PDF-1.4\n');
+
+    beginObj(1); push(`<< /Type /Catalog /Pages 2 0 R >>\n`); endObj();
+
+    beginObj(2);
+    push(`<< /Type /Pages /Kids [${pageObjNums.map(n => n+' 0 R').join(' ')}] /Count ${pages.length} >>\n`);
+    endObj();
+
+    ['F1','F2','F3'].forEach(k => {
+      beginObj(fontObjNums[k]);
+      push(`<< /Type /Font /Subtype /Type1 /BaseFont /${fontNames[k]} /Encoding /WinAnsiEncoding >>\n`);
+      endObj();
+    });
+
+    pages.forEach((ops, i) => {
+      const pageNum = pageObjNums[i];
+      const contentNum = contentObjNums[i];
+
+      beginObj(pageNum);
+      push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageW} ${pageH}] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R >> >> /Contents ${contentNum} 0 R >>\n`);
+      endObj();
+
+      const streamChunks = [];
+      let streamLen = 0;
+      function sPush(bytesOrStr){
+        const b = (typeof bytesOrStr === 'string') ? new TextEncoder().encode(bytesOrStr) : new Uint8Array(bytesOrStr);
+        streamChunks.push(b);
+        streamLen += b.length;
+      }
+      ops.forEach(op => {
+        if(op.type === 'rect'){
+          sPush(`q\n${op.color[0]} ${op.color[1]} ${op.color[2]} rg\n${op.x} ${op.y} ${op.w} ${op.h} re\nf\nQ\n`);
+        } else {
+          sPush(`BT\n/${op.font} ${op.size} Tf\n${op.color[0]} ${op.color[1]} ${op.color[2]} rg\n${op.x} ${op.y} Td\n(`);
+          sPush(toWinAnsiBytes(op.text));
+          sPush(`) Tj\nET\n`);
+        }
+      });
+      const streamBytes = new Uint8Array(streamLen);
+      let off = 0;
+      streamChunks.forEach(c => { streamBytes.set(c, off); off += c.length; });
+
+      beginObj(contentNum);
+      push(`<< /Length ${streamBytes.length} >>\nstream\n`);
+      push(streamBytes);
+      push(`\nendstream\n`);
+      endObj();
+    });
+
+    const xrefOffset = length;
+    const maxNum = nextFree - 1;
+    push(`xref\n0 ${maxNum+1}\n0000000000 65535 f \n`);
+    for(let n=1; n<=maxNum; n++){
+      const off = offsets[n] !== undefined ? offsets[n] : 0;
+      push(String(off).padStart(10,'0') + ' 00000 n \n');
+    }
+    push(`trailer\n<< /Size ${maxNum+1} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`);
+
+    const out = new Uint8Array(length);
+    let pos = 0;
+    chunks.forEach(c => { out.set(c, pos); pos += c.length; });
+    return out;
+  }
+
+  document.getElementById('exportPdfBtn').onclick = () => {
+    if(entries.length === 0){ alert('No entries to export yet.'); return; }
+    const ordered = [...entries].sort((a,b) => (a.date||'').localeCompare(b.date||'') || a.caseNum - b.caseNum);
+    const bytes = buildPdfBytes(ordered);
+    const blob = new Blob([bytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `sagen-journal-${todayISO()}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  // Belt-and-braces: iOS Safari sometimes ignores viewport zoom
+  // restrictions, especially in "Add to Home Screen" mode.
+  document.addEventListener('gesturestart', (e) => e.preventDefault());
+  document.addEventListener('gesturechange', (e) => e.preventDefault());
+})();
+</script>
+
+</body>
+</html>
